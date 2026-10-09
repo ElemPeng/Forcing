@@ -1,0 +1,10 @@
+name = "Forcing"
+version = "0.1.0"
+defaultTargets = ["forcing"]
+
+[[lean_lib]]
+name = "Forcing"
+
+[[lean_exe]]
+name = "forcing"
+root = "Main"
