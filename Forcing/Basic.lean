@@ -66,8 +66,18 @@ abbrev Assign (ℳ : Model) := Nat → ℳ.M
 
 def AgreeOff {ℳ : Model} (i : Nat) (σ τ : Assign ℳ) := ∀ j : Nat, i ≠ j → σ j = τ j
 
+@[symm] theorem AgreeOff.symm {ℳ : Model} {i : Nat} {σ τ : Assign ℳ} (h : AgreeOff i σ τ) : AgreeOff i τ σ := by
+    unfold AgreeOff at h ⊢; simpa [Eq.comm]
+
 theorem eq_of_agree_off {ℳ : Model} {i j : Nat} {σ τ : Assign ℳ} :
     AgreeOff i σ τ → i ≠ j → σ j = τ j := fun h1 h2 ↦ h1 j h2
+
+theorem eq_of_agree_off' {ℳ : Model} {i j : Nat} {σ τ : Assign ℳ} (m : ℳ.M) :
+    AgreeOff i σ τ → i ≠ j → σ j = m → τ j = m := by
+    intro h1 h2 h3; rw [←h3]; symm; exact eq_of_agree_off h1 h2
+
+theorem agree_off_triv {ℳ : Model} {i : Nat} {σ : Assign ℳ} :
+    AgreeOff i σ σ := fun _ _ ↦ rfl
 
 def Sat {ℳ : Model} (σ : Assign ℳ) : Wff → Prop
     | Wff.mem i j => ℳ.E (σ i) (σ j)
@@ -84,36 +94,36 @@ def Wff.iff (φ ψ : Wff) := (φ.imp ψ).and (ψ.imp φ)
 
 def Wff.some (i : Nat) (φ : Wff) : Wff := (φ.not.all i).not
 
-theorem Wff.mem_iff {ℳ : Model} {σ : Assign ℳ} {i j : Nat} :
+@[simp] theorem Wff.mem_iff {ℳ : Model} {σ : Assign ℳ} {i j : Nat} :
     Sat σ (mem i j) ↔ ℳ.E (σ i) (σ j) := by rfl
 
-theorem Wff.eq_iff {ℳ : Model} {σ : Assign ℳ} {i j : Nat} :
+@[simp] theorem Wff.eq_iff {ℳ : Model} {σ : Assign ℳ} {i j : Nat} :
     Sat σ (eq i j) ↔ (σ i) = (σ j) := by rfl
 
-theorem Wff.not_iff {ℳ : Model} {σ : Assign ℳ} {φ : Wff} :
+@[simp] theorem Wff.not_iff {ℳ : Model} {σ : Assign ℳ} {φ : Wff} :
     Sat σ φ.not ↔ ¬(Sat σ φ) := by rfl
 
-theorem Wff.imp_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ: Wff} :
+@[simp] theorem Wff.imp_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ: Wff} :
     Sat σ (φ.imp ψ) ↔ (Sat σ φ) → (Sat σ ψ) := by rfl
 
-theorem Wff.all_iff {ℳ : Model} {σ : Assign ℳ} {i : Nat} {φ : Wff} :
+@[simp] theorem Wff.all_iff {ℳ : Model} {σ : Assign ℳ} {i : Nat} {φ : Wff} :
     Sat σ (φ.all i) ↔ ∀ τ : Assign ℳ, AgreeOff i σ τ → (Sat τ φ) := by rfl
 
-theorem Wff.or_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
+@[simp] theorem Wff.or_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
     Sat σ (φ.or ψ) ↔ (Sat σ φ) ∨ (Sat σ ψ) := by
     unfold Wff.or; rw [Classical.or_iff_not_imp_left]; rfl
 
-theorem Wff.and_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
+@[simp] theorem Wff.and_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
     Sat σ (φ.and ψ) ↔ (Sat σ φ) ∧ (Sat σ ψ) := by
     unfold Wff.and; change ¬ (Sat σ (φ.imp ψ.not)) ↔ Sat σ φ ∧ Sat σ ψ
     rw [not_iff_comm, not_and, Wff.imp_iff, not_iff]
 
-theorem Wff.iff_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
+@[simp] theorem Wff.iff_iff {ℳ : Model} {σ : Assign ℳ} {φ ψ : Wff} :
     Sat σ (φ.iff ψ) ↔ ((Sat σ φ) ↔ (Sat σ ψ)) := by
     unfold iff; rw [and_iff, imp_iff, imp_iff,
         iff_iff_implies_and_implies (a := Sat σ φ)]
 
-theorem Wff.some_iff {ℳ : Model} {σ : Assign ℳ} {i : Nat} {φ : Wff} :
+@[simp] theorem Wff.some_iff {ℳ : Model} {σ : Assign ℳ} {i : Nat} {φ : Wff} :
     Sat σ (φ.some i) ↔ ∃ τ : Assign ℳ, AgreeOff i σ τ ∧ (Sat τ φ) := by
     unfold some; rw [not_iff, not_iff_comm, not_exists];
     simp [not_and, all_iff, not_iff]
@@ -131,7 +141,10 @@ theorem update_other {ℳ : Model} {σ : Assign ℳ} {v n : Nat} {a : ℳ.M} :
 theorem update_agree_off {ℳ : Model} {σ : Assign ℳ} {v : Nat} {a : ℳ.M} :
     AgreeOff v σ (update σ v a) := fun _ hn ↦ (update_other hn).symm
 
-abbrev ZF : Model := ⟨Set, zfmem⟩
+theorem update_agree_off' {ℳ : Model} {σ : Assign ℳ} {v : Nat} {a : ℳ.M} :
+    AgreeOff v (update σ v a) σ := fun _ hn ↦ (update_other hn)
+
+abbrev ZF : Model := ⟨Set, (· ∈ ·) ⟩
 
 def Wff.eval {ℳ : Model} (σ : Assign ℳ) (φ : Wff) (v : Nat) (a : ℳ.M) :=
     Sat (update σ v a) φ
@@ -152,6 +165,8 @@ theorem separ_mem_iff {φ : Wff} {σ : Assign ZF} {x a : Set} : a ∈ Separ φ �
 
 def const_param (x : Set) : Assign ZF := fun _ ↦ x
 
+theorem const_param_eq {x : Set} {i : Nat} : const_param x i = x := by rfl
+
 theorem exists_empty : ∃ s : Set, ∀ a : Set, a ∉ s := by
     have ⟨x⟩ := exist; refine ⟨Separ (Wff.eq 0 0).not (const_param x) x, ?_⟩
     intro a ha; rw [separ_mem_iff] at ha; have ⟨_, ha'⟩ := ha;
@@ -161,6 +176,12 @@ theorem exists_empty : ∃ s : Set, ∀ a : Set, a ∉ s := by
 noncomputable def ZFempty : Set := Exists.choose exists_empty
 
 noncomputable instance : EmptyCollection Set where emptyCollection := ZFempty
+
+noncomputable def one_param (i : Nat) (x : Set) := update (const_param ∅) i x
+
+theorem one_param_same (i: Nat) (x : Set) : one_param i x i = x := by
+    unfold one_param; exact update_same
+
 
 theorem not_mem_empty (s : Set) : s ∉ (∅ : Set) := (Exists.choose_spec exists_empty) s
 
@@ -228,17 +249,17 @@ def is_succ_wff (s s' x: Nat) (_hdist : [s, s', x].Nodup := by decide)
 
 theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodup):
     Sat σ (is_succ_wff s s' x hdist) ↔ (σ s).succ = (σ s') := by
-    simp [is_succ_wff, all_iff, iff_iff, or_iff]
+    simp [is_succ_wff]
     have hxs : x ≠ s := by grind
     have hxs' : x ≠ s' := by grind
     constructor
     ·   intro LHS; ext z
         change z ∈ (σ s).succ ↔ (z ∈ (σ s')); rw [succ_mem_iff]
         let τ := update σ x z; have h := LHS τ (update_agree_off)
-        simp [mem_iff, eq_iff] at h; subst τ; simp [update_same] at h
+        subst τ; simp [update_same] at h
         simp [update_other hxs, update_other hxs'] at h
         rwa [Iff.comm]
-    ·   intro LHS τ hτ; simp [mem_iff, eq_iff]
+    ·   intro LHS τ hτ
         unfold AgreeOff at hτ
         unfold Set.succ at LHS; rw [← (hτ s hxs), ←(hτ s' hxs')]
         rw [←LHS]; show (τ x) ∈ (⋃Dbl (σ s) (Sngl (σ s))) ↔ (τ x) ∈  (σ s) ∨ τ x = σ s
@@ -253,12 +274,67 @@ theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodu
             ·   refine ⟨σ s, h', pair_mem_left⟩
             ·   rw [h']; refine ⟨Sngl (σ s), sngl_mem, pair_mem_right⟩
 
+def set_isect_wff (x s y : Nat) (_hdist: [s, x, y].Nodup := by decide) : Wff :=
+    ((Wff.mem y s).imp (Wff.mem x y)).all y
 
-def is_inductive_wff (s e x y z : Nat) (_hdist : [s, e, x, y, z].Nodup := by decide) : Wff :=
+noncomputable def ZFIsect (family : Set) := by
+    by_cases h : family.Nonempty
+    ·   exact Separ (set_isect_wff 0 1 2) (one_param 1 family) (Exists.choose h)
+    exact ∅
+
+prefix:80 "⋂" => ZFIsect
+
+theorem Wff.isect_mem_iff (s x : Set) (hs : s.Nonempty) : x ∈ ⋂s ↔ ∀ y, y ∈ s → x ∈ y := by
+    unfold ZFIsect; simp [hs]; constructor
+    ·   intro h y hy; have h' := separ_has_prop h
+        unfold Wff.eval set_isect_wff at h'
+        simp at h'; let σ := update (update (one_param 1 s) 0 x) 2 y
+        have hσ : σ = update (update (one_param 1 s) 0 x) 2 y := by rfl
+        have h'' := h' σ (update_agree_off)
+        have h0 : σ 0 = x := by simp [hσ, update_other, update_same]
+        have h1 : σ 1 = s := by simp [hσ, update_other, one_param_same]
+        have h2 : σ 2 = y := by simp [hσ, update_same]
+        rw [h0, h1, h2] at h''; exact h'' hy
+    ·   intro hy; rw [separ_mem_iff]
+        refine ⟨hy (Exists.choose hs) (Exists.choose_spec hs), ?_⟩
+        simp [Wff.eval, set_isect_wff]; intro τ hτ1 hτ2
+        have h0 := eq_of_agree_off hτ1 (j := 0) (by decide)
+        rw [update_same] at h0
+        have h2 := eq_of_agree_off hτ1 (j := 1) (by decide)
+        rw [update_other (by decide), one_param_same] at h2
+        rw [←h0]; rw [←h2] at hτ2
+        exact hy (τ 2) hτ2
+
+def is_inductive_wff (s e x y z : Nat) (hdist : [s, e, x, y, z].Nodup := by decide) : Wff :=
     (Wff.mem e s).and
     (( (Wff.mem x s).imp
         (((is_succ_wff x y z (by simp_all)).and (Wff.mem y s)).some y)
     ).all x)
+
+theorem Wff.is_inductive_iff {τ : Assign ZF} (s e x y z : Nat) (hτ : τ e = ∅) (hdist : [s, e, x, y, z].Nodup := by decide) :
+    Sat τ (is_inductive_wff s e x y z hdist) ↔ (τ s).Inductive := by
+    unfold is_inductive_wff; have hxs : x ≠ s := by grind
+    have hyx : y ≠ x := by grind
+    have hys : y ≠ s := by grind
+    simp; constructor
+    ·   intro h
+        obtain ⟨h1, h2⟩ := h; simp [hτ] at h1; refine ⟨h1, ?_⟩
+        intro n hn; have h3 := h2 (update τ x n) update_agree_off
+        have hts := update_other (σ := τ) (v := x) (a := n) hxs
+        rw [← update_same (σ := τ) (v := x) (a := n), ←hts] at hn
+        have h4 := h3 hn; have ⟨σ, hσ1, hσ2, hσ3⟩ := h4
+        rw [Wff.is_succ_iff] at hσ2; simp [←hσ2] at hσ3
+        have h5 : σ x = n := eq_of_agree_off' n hσ1 hyx (update_same); rw [h5] at hσ2 hσ3
+        have h7 : σ s = τ s := eq_of_agree_off' (τ s) hσ1 hys (update_other hxs)
+        exact h7 ▸ hσ3
+    ·   intro ⟨hL1, hL2⟩; refine ⟨?_, ?_⟩
+        ·   simpa [hτ]
+        ·   intro ρ hρ; simp [Wff.is_succ_iff]
+            intro h1; have hρ' := eq_of_agree_off hρ hxs
+            rw [←hρ'] at h1; have hL3 := hL2 (ρ x) h1
+            refine ⟨update ρ y (ρ x).succ, update_agree_off, ?_, ?_⟩
+            ·   rw [update_same, update_other hyx]
+            ·   simpa [update_same, update_other hys, ←hρ']
 
 /- When I use this in Separ, 0 is the variable that will get used;
 the only other free variable in omega_wff is 2, which will become ∅
@@ -267,36 +343,74 @@ when I use omega_assign
 
 def omega_wff : Wff := ((is_inductive_wff 1 2 3 4 5).imp (Wff.mem 0 1)).all 1
 
-noncomputable def omega_assign := const_param (∅)
+noncomputable def omega_assign := const_param ∅ --
 
 noncomputable def ω : Set := Separ omega_wff omega_assign CanonInf
 
+theorem mem_omega_iff {x : Set} : x ∈ ω ↔ ∀ y : Set, y.Inductive → x ∈ y := by
+    constructor
+    ·   intro hx y hy; unfold ω at hx; rw [separ_mem_iff] at hx
+        obtain ⟨hx1, hx2⟩ := hx
+        simp [Wff.eval, omega_assign, omega_wff] at hx2
+        have h1 := hx2 (update (update (const_param ∅) 0 x) 1 y) update_agree_off
+        have hρ : update (update (const_param ∅) 0 x) 1 y 2 = ∅ := by
+            simp [update_other, const_param]
+        have hy' : update (update (const_param ∅) 0 x) 1 y 1 = y := update_same
+        rw [← hy', ←Wff.is_inductive_iff 1 2 3 4 5 hρ] at hy
+        have h2 := h1 hy
+        have hx' : update (update (const_param ∅) 0 x) 1 y 0 = x := by
+            simp [update_other, update_same]
+        rwa [hy', hx'] at h2
+    ·   intro hy; unfold ω; simp [separ_mem_iff]
+        refine ⟨hy CanonInf canonical_inf_inductive, ?_⟩
+        simp [Wff.eval, omega_assign, omega_wff]; intro τ hτ h
+        have hτ' : τ 2 = ∅ :=
+            eq_of_agree_off' (j := 2) (∅ : Set) hτ (by decide) (update_other (by decide))
+        simp [Wff.is_inductive_iff 1 2 3 4 5 hτ'] at h
+        have hτ'' : τ 0 = x :=
+            eq_of_agree_off' x hτ (Nat.zero_ne_one).symm update_same
+        rw [hτ'']; exact hy (τ 1) h
+
+theorem omega_assign_lemma {x : Nat} : update (const_param ∅) x ∅ = const_param ∅ := by
+    funext y; by_cases hxy : x = y
+    ·   subst hxy; exact update_same
+    ·   exact update_other hxy
+
 theorem omega_inductive : ω.Inductive := by
     unfold ω; constructor
-    ·   rw [separ_mem_iff]; refine ⟨empty_mem_base, ?_⟩
-        unfold Wff.eval; unfold omega_wff omega_assign
-        unfold Sat AgreeOff; intro τ hj; rw [Wff.imp_iff]
-        intro hS; have h0 := hj 0 (by decide)
-        unfold update at h0; simp at h0
-        have h2 := hj 2 (by decide)
-        simp [update, const_param] at h2
-        unfold is_inductive_wff at hS
-        unfold Sat; rw [Wff.and_iff] at hS
-        have ⟨hS1, hS2⟩ := hS; simp [Sat] at hS1
-        exact h0 ▸ h2 ▸ hS1
-    ·   intro x hx; rw [separ_mem_iff] at hx ⊢
-        have ⟨hx1, hx2⟩ := hx; refine ⟨?_, ?_⟩
+    ·   rw [separ_mem_iff]; refine ⟨canonical_inf_inductive.1, ?_⟩
+        unfold Wff.eval omega_wff omega_assign; rw [omega_assign_lemma]
+        rw [Wff.all_iff]; intro τ hτ; rw [Wff.imp_iff]
+        have hτ' : ∅ = τ 2 := by
+            rw [← const_param_eq (x := ∅) (i := 2)]
+            exact eq_of_agree_off hτ (by decide)
+        intro h1; rw [Wff.is_inductive_iff  1 2 3 4 5 hτ'.symm] at h1
+        have ⟨h1a, h1b⟩ := h1; simp [Wff.mem_iff]
+        rw [←eq_of_agree_off hτ (Nat.zero_ne_one).symm]
+        unfold const_param; exact h1a
+    ·   intro x hx; rw [separ_mem_iff] at hx ⊢; obtain ⟨hx1, hx2⟩ := hx
+        refine ⟨?_, ?_⟩
         ·   exact canonical_inf_inductive.2 x hx1
-        ·   simp [Wff.eval, omega_assign, omega_wff] at hx2 ⊢
+        ·   unfold Wff.eval omega_wff omega_assign at hx2 ⊢
             rw [Wff.all_iff] at hx2 ⊢; intro τ hτ
-            unfold AgreeOff update const_param at hx2 hτ
-            let σ : Assign ZF :=  fun j ↦  (if 0 = j then x else (∅ : Set))
-            have hσ : ∀ j : Nat, (if 0 = j then x else (∅ : Set)) = σ j := by
-                intro j; rfl
-            have hx2' := hx2 σ
-            have hσ' : (∀ (j : Nat), 1 ≠ j → (if 0 = j then x else ∅) = σ j) := by
-                intro j hj; exact hσ j
-            have hx2'' := hx2' hσ'
-            rw [Wff.imp_iff] at hx2'' ⊢; intro h1
-            unfold is_inductive_wff at h1 hx2''
-            rw [Wff.and_iff] at hx2'' h1
+            have h1 := hx2 (update τ 0 x)
+            have hτ' : AgreeOff 1 (update (const_param ∅) 0 x) (update τ 0 x) := by
+                unfold AgreeOff at hτ ⊢; intro j hj; have h' := hτ j hj
+                simp [update]; split
+                ·   rfl
+                ·   expose_names; rwa [update_other h] at h'
+            have hτ'' : ∅ = τ 2 := by
+                rw [← const_param_eq (x := ∅) (i := 2)]
+                have h' := eq_of_agree_off hτ' (j := 2) (by decide)
+                simpa [update_other] using h'
+            have h2 := h1 hτ'; rw [Wff.imp_iff] at h2 ⊢
+            intro hL; rw [Wff.is_inductive_iff 1 2 3 4 5 hτ''.symm] at hL
+            have hLcopy := hL
+            have hτu : (update τ 0 x) 2 = ∅ := by
+                rw [hτ'']; exact update_other (by decide)
+            have hτu' : (update τ 0 x) 1 = τ 1 := update_other (by decide)
+            rw [←hτu', ←Wff.is_inductive_iff 1 2 3 4 5 hτu] at hL
+            have h3 := h2 hL; simp [Wff.mem_iff] at h3 ⊢
+            simp [update_same, update_other] at h3
+            rw [←eq_of_agree_off hτ (j := 0) (by decide), update_same]
+            exact hLcopy.2 x h3
