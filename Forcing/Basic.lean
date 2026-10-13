@@ -46,6 +46,9 @@ instance : HasSSubset Set where SSubset := fun x y ↦ x ⊆ y ∧ x ≠ y
 example {s : Set} : s ⊆ s := fun _ hx ↦ hx
 example {s : Set} : ¬ (s ⊂ s) := fun ⟨_, h⟩ ↦ h rfl
 
+theorem eq_of_subset_of_subset (a b : Set) : a ⊆ b → b ⊆ a → a = b := by
+    intro h1 h2; ext z; exact Iff.intro (fun h ↦ h1 z h) (fun h ↦ h2 z h)
+
 /- sigh, going to do separation axiom honestly-/
 
 inductive Wff where
@@ -149,6 +152,49 @@ abbrev ZF : Model := ⟨Set, (· ∈ ·) ⟩
 def Wff.eval {ℳ : Model} (σ : Assign ℳ) (φ : Wff) (v : Nat) (a : ℳ.M) :=
     Sat (update σ v a) φ
 
+--- Defining predicates so I don't have to use this Wff stuff
+def Pred := Assign ZF → Prop
+
+def Definable (P : Pred) := ∃ φ : Wff, ∀ σ : Assign ZF, Sat σ φ ↔ P σ
+
+theorem mem_definable (i j : Nat) : Definable (fun σ ↦ σ i ∈ σ j) := by --- This says x_i ∈ x_j
+    exact ⟨Wff.mem i j, by simp⟩
+
+theorem eq_definable (i j : Nat) : Definable (fun σ ↦ σ i = σ j) := by
+    exact ⟨Wff.eq i j, by simp⟩
+
+@[simp] def Pred.not (P : Pred) : Pred := fun σ ↦ ¬ (P σ)
+
+theorem not_definable (P : Pred) (hP : Definable P) : Definable (P.not) := by
+    obtain ⟨φ, hφ⟩ := hP; exact ⟨φ.not, by simp_all⟩
+
+@[simp] def Pred.or (P Q : Pred) : Pred := fun σ ↦ (P σ) ∨ (Q σ)
+
+theorem or_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (P.or Q) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ
+    exact ⟨φ.or ψ, by simp_all⟩
+
+@[simp] def Pred.imp (P Q : Pred) : Pred := fun σ ↦ (P σ) → (Q σ)
+
+theorem imp_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (P.imp Q) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ
+    exact ⟨φ.imp ψ, by simp_all⟩
+
+--- defining a ⊆ b
+def is_subset_wff (a b x : Nat) (_hdist : [a, b, x].Nodup := by decide) : Wff :=
+    ((Wff.mem x a).imp (Wff.mem x b)).all x
+
+theorem Wff.is_subset_iff {σ : Assign ZF} (a b x : Nat) (hdist : [a, b, x].Nodup) :
+    Sat σ (is_subset_wff a b x hdist) ↔ σ a ⊆ σ b := by
+    have hxa : x ≠ a := by grind
+    have hxb : x ≠ b := by grind
+    simp [is_subset_wff]; constructor
+    ·   intro hL s hs; have hL2 := hL (update σ x s) update_agree_off
+        simp [update_same, update_other hxa, update_other hxb] at hL2
+        exact hL2 hs
+    ·   intro hτab τ hτ hσxa; rw [eq_of_agree_off hτ hxa, eq_of_agree_off hτ hxb] at hτab
+        exact hτab (τ x) hσxa
+
 axiom separ_scheme (φ : Wff) (σ : Assign ZF) (x : Set) : ∃ y : Set, ∀ a,
 (a ∈ y ↔ a ∈ x ∧ φ.eval σ 0 a)
 
@@ -162,6 +208,8 @@ theorem separ_has_prop {φ : Wff} {σ : Assign ZF} {x a : Set} : a ∈ Separ φ 
 
 theorem separ_mem_iff {φ : Wff} {σ : Assign ZF} {x a : Set} : a ∈ Separ φ σ x ↔ (a ∈ x ∧ φ.eval σ 0 a) :=
     Exists.choose_spec (separ_scheme φ σ x) a
+
+
 
 def const_param (x : Set) : Assign ZF := fun _ ↦ x
 
@@ -181,7 +229,6 @@ noncomputable def one_param (i : Nat) (x : Set) := update (const_param ∅) i x
 
 theorem one_param_same (i: Nat) (x : Set) : one_param i x i = x := by
     unfold one_param; exact update_same
-
 
 theorem not_mem_empty (s : Set) : s ∉ (∅ : Set) := (Exists.choose_spec exists_empty) s
 
@@ -241,13 +288,12 @@ theorem canonical_inf_inductive : CanonInf.Inductive :=
 
 theorem empty_mem_base : ∅ ∈ CanonInf := canonical_inf_inductive.1
 
-def is_succ_wff (s s' x: Nat) (_hdist : [s, s', x].Nodup := by decide)
-: Wff :=
+def is_succ_wff (s s' x: Nat) (_hdist : [s, s', x].Nodup := by decide) : Wff :=
     ((Wff.mem x s').iff
         ((Wff.mem x s).or (Wff.eq x s))
     ).all x
 
-theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodup):
+theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodup) :
     Sat σ (is_succ_wff s s' x hdist) ↔ (σ s).succ = (σ s') := by
     simp [is_succ_wff]
     have hxs : x ≠ s := by grind
@@ -274,6 +320,8 @@ theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodu
             ·   refine ⟨σ s, h', pair_mem_left⟩
             ·   rw [h']; refine ⟨Sngl (σ s), sngl_mem, pair_mem_right⟩
 
+example: Wff_Pred (fun s ↦ ∃ s', s.succ = s') := by
+    intro s; refine ⟨is_succ_wff 0 1 2, one_param 0 s, ?_⟩
 def set_isect_wff (x s y : Nat) (_hdist: [s, x, y].Nodup := by decide) : Wff :=
     ((Wff.mem y s).imp (Wff.mem x y)).all y
 
@@ -377,40 +425,22 @@ theorem omega_assign_lemma {x : Nat} : update (const_param ∅) x ∅ = const_pa
     ·   exact update_other hxy
 
 theorem omega_inductive : ω.Inductive := by
-    unfold ω; constructor
-    ·   rw [separ_mem_iff]; refine ⟨canonical_inf_inductive.1, ?_⟩
-        unfold Wff.eval omega_wff omega_assign; rw [omega_assign_lemma]
-        rw [Wff.all_iff]; intro τ hτ; rw [Wff.imp_iff]
-        have hτ' : ∅ = τ 2 := by
-            rw [← const_param_eq (x := ∅) (i := 2)]
-            exact eq_of_agree_off hτ (by decide)
-        intro h1; rw [Wff.is_inductive_iff  1 2 3 4 5 hτ'.symm] at h1
-        have ⟨h1a, h1b⟩ := h1; simp [Wff.mem_iff]
-        rw [←eq_of_agree_off hτ (Nat.zero_ne_one).symm]
-        unfold const_param; exact h1a
-    ·   intro x hx; rw [separ_mem_iff] at hx ⊢; obtain ⟨hx1, hx2⟩ := hx
-        refine ⟨?_, ?_⟩
-        ·   exact canonical_inf_inductive.2 x hx1
-        ·   unfold Wff.eval omega_wff omega_assign at hx2 ⊢
-            rw [Wff.all_iff] at hx2 ⊢; intro τ hτ
-            have h1 := hx2 (update τ 0 x)
-            have hτ' : AgreeOff 1 (update (const_param ∅) 0 x) (update τ 0 x) := by
-                unfold AgreeOff at hτ ⊢; intro j hj; have h' := hτ j hj
-                simp [update]; split
-                ·   rfl
-                ·   expose_names; rwa [update_other h] at h'
-            have hτ'' : ∅ = τ 2 := by
-                rw [← const_param_eq (x := ∅) (i := 2)]
-                have h' := eq_of_agree_off hτ' (j := 2) (by decide)
-                simpa [update_other] using h'
-            have h2 := h1 hτ'; rw [Wff.imp_iff] at h2 ⊢
-            intro hL; rw [Wff.is_inductive_iff 1 2 3 4 5 hτ''.symm] at hL
-            have hLcopy := hL
-            have hτu : (update τ 0 x) 2 = ∅ := by
-                rw [hτ'']; exact update_other (by decide)
-            have hτu' : (update τ 0 x) 1 = τ 1 := update_other (by decide)
-            rw [←hτu', ←Wff.is_inductive_iff 1 2 3 4 5 hτu] at hL
-            have h3 := h2 hL; simp [Wff.mem_iff] at h3 ⊢
-            simp [update_same, update_other] at h3
-            rw [←eq_of_agree_off hτ (j := 0) (by decide), update_same]
-            exact hLcopy.2 x h3
+    refine ⟨?_, ?_⟩ <;> all_goals simp [mem_omega_iff]
+    ·   exact fun _ hy ↦ hy.1
+    ·   exact fun x h y hy ↦ hy.2 x <| h y hy
+
+theorem omega_min (y : Set) : y.Inductive → ω ⊆ y := by
+    intro hy x hx; rw [mem_omega_iff] at hx; exact hx y hy
+
+theorem omega_unique (ω' : Set) : (∀ x : Set, (∀ y : Set, y.Inductive → x ∈ y) ↔ x ∈ ω') → ω = ω' := by
+    intro h; apply eq_of_subset_of_subset
+    ·   intro z hz; rw [mem_omega_iff] at hz; exact (h z).mp hz
+    ·   intro z hz; rw [mem_omega_iff]; exact (h z).mpr hz
+
+theorem induction_principle (y : Set) : y.Inductive → y ⊆ ω → y = ω := by
+    intro hy hyω; apply eq_of_subset_of_subset y ω hyω <| omega_min y hy
+
+theorem wff_induction (φ : Wff) (σ : Assign ZF) :
+    Sat σ φ → (∀ n : Set, n ∈ (Separ φ σ ω) → n.succ ∈ (Separ φ σ ω)) → (Separ φ σ ω) = ω := by
+    intro hbase ih; ext z;
+    sorry
