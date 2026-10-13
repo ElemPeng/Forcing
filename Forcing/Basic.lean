@@ -144,8 +144,12 @@ theorem update_other {ℳ : Model} {σ : Assign ℳ} {v n : Nat} {a : ℳ.M} :
 theorem update_agree_off {ℳ : Model} {σ : Assign ℳ} {v : Nat} {a : ℳ.M} :
     AgreeOff v σ (update σ v a) := fun _ hn ↦ (update_other hn).symm
 
-theorem update_agree_off' {ℳ : Model} {σ : Assign ℳ} {v : Nat} {a : ℳ.M} :
-    AgreeOff v (update σ v a) σ := fun _ hn ↦ (update_other hn)
+theorem update_eq_of_agree_off {ℳ : Model} {i : Nat} {σ τ : Assign ℳ} :
+    AgreeOff i σ τ → update σ i (τ i) = τ  := by
+    intro hA; funext n; by_cases hin : i = n
+    ·   subst hin; rw [update_same]
+    ·   have h := hA n hin; rwa [update_other hin]
+
 
 abbrev ZF : Model := ⟨Set, (· ∈ ·) ⟩
 
@@ -163,26 +167,47 @@ theorem mem_definable (i j : Nat) : Definable (fun σ ↦ σ i ∈ σ j) := by -
 theorem eq_definable (i j : Nat) : Definable (fun σ ↦ σ i = σ j) := by
     exact ⟨Wff.eq i j, by simp⟩
 
-@[simp] def Pred.not (P : Pred) : Pred := fun σ ↦ ¬ (P σ)
-
-theorem not_definable (P : Pred) (hP : Definable P) : Definable (P.not) := by
+theorem not_definable (P : Pred) (hP : Definable P) : Definable (fun σ ↦ ¬ (P σ)) := by
     obtain ⟨φ, hφ⟩ := hP; exact ⟨φ.not, by simp_all⟩
 
-@[simp] def Pred.or (P Q : Pred) : Pred := fun σ ↦ (P σ) ∨ (Q σ)
+theorem or_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (fun σ ↦ (P σ) ∨ (Q σ)) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ;  exact ⟨φ.or ψ, by simp_all⟩
 
-theorem or_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (P.or Q) := by
-    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ
-    exact ⟨φ.or ψ, by simp_all⟩
+theorem imp_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (fun σ ↦ (P σ) → (Q σ)) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ; exact ⟨φ.imp ψ, by simp_all⟩
 
-@[simp] def Pred.imp (P Q : Pred) : Pred := fun σ ↦ (P σ) → (Q σ)
+theorem all_definable (i : Nat) (P : Pred) (hP : Definable P) : Definable (fun σ ↦ (∀ a : Set, (P (update σ i a)))) := by
+    obtain ⟨φ, hφ⟩ := hP; refine ⟨φ.all i, ?_⟩
+    simp; intro σ; constructor
+    ·   intro LHS a; have h := LHS (update σ i a) update_agree_off
+        rwa [hφ (update σ i a)] at h
+    ·   intro LHS τ hτ; have h := LHS (τ i)
+        rwa [update_eq_of_agree_off hτ, ←hφ τ] at h
 
-theorem imp_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (P.imp Q) := by
-    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ
-    exact ⟨φ.imp ψ, by simp_all⟩
+theorem and_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (fun σ ↦ P σ ∧ Q σ) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ; refine ⟨φ.and ψ, by simp_all⟩
+
+theorem iff_definable (P Q : Pred) (hP : Definable P) (hQ : Definable Q) : Definable (fun σ ↦ (P σ) ↔ (Q σ)) := by
+    obtain ⟨φ, hφ⟩ := hP; obtain ⟨ψ, hψ⟩ := hQ; refine ⟨φ.iff ψ, by simp_all⟩
+
+theorem some_definable (i : Nat) (P : Pred) (hP : Definable P) : Definable (fun σ ↦ ∃ a : Set, (P (update σ i a))) := by
+    obtain ⟨φ, hφ⟩ := hP; refine ⟨φ.some i, ?_⟩
+    simp; intro σ; constructor
+    ·   intro ⟨τ, hτ1, hτ2⟩; refine ⟨τ i, ?_⟩
+        rwa [update_eq_of_agree_off hτ1, ← hφ τ]
+    ·   intro ⟨a, ha⟩; refine ⟨(update σ i a), update_agree_off, ?_⟩
+        rwa [hφ (update σ i a)]
+
+example (i j: Nat) (hij : i ≠ j) (a : Set) (σ : Assign ZF) : a ∈ (σ i) ↔ (fun τ ↦ τ j ∈ τ i) (update σ j a) := by
+    simp [update_same, update_other hij.symm]
 
 --- defining a ⊆ b
 def is_subset_wff (a b x : Nat) (_hdist : [a, b, x].Nodup := by decide) : Wff :=
     ((Wff.mem x a).imp (Wff.mem x b)).all x
+
+@[simp] def Pred.subset (i j : Nat) : Pred := (fun σ ↦ σ i ⊆ σ j)
+
+theorem Pred.subset' (i j : Nat) : subset i j = fun σ ↦ ∀ a : Set, (a ∈ σ i → a ∈ σ j) := by rfl
 
 theorem Wff.is_subset_iff {σ : Assign ZF} (a b x : Nat) (hdist : [a, b, x].Nodup) :
     Sat σ (is_subset_wff a b x hdist) ↔ σ a ⊆ σ b := by
@@ -208,8 +233,6 @@ theorem separ_has_prop {φ : Wff} {σ : Assign ZF} {x a : Set} : a ∈ Separ φ 
 
 theorem separ_mem_iff {φ : Wff} {σ : Assign ZF} {x a : Set} : a ∈ Separ φ σ x ↔ (a ∈ x ∧ φ.eval σ 0 a) :=
     Exists.choose_spec (separ_scheme φ σ x) a
-
-
 
 def const_param (x : Set) : Assign ZF := fun _ ↦ x
 
@@ -320,8 +343,6 @@ theorem Wff.is_succ_iff {σ : Assign ZF} (s s' x : Nat) (hdist : [s, s', x].Nodu
             ·   refine ⟨σ s, h', pair_mem_left⟩
             ·   rw [h']; refine ⟨Sngl (σ s), sngl_mem, pair_mem_right⟩
 
-example: Wff_Pred (fun s ↦ ∃ s', s.succ = s') := by
-    intro s; refine ⟨is_succ_wff 0 1 2, one_param 0 s, ?_⟩
 def set_isect_wff (x s y : Nat) (_hdist: [s, x, y].Nodup := by decide) : Wff :=
     ((Wff.mem y s).imp (Wff.mem x y)).all y
 
@@ -437,10 +458,19 @@ theorem omega_unique (ω' : Set) : (∀ x : Set, (∀ y : Set, y.Inductive → x
     ·   intro z hz; rw [mem_omega_iff] at hz; exact (h z).mp hz
     ·   intro z hz; rw [mem_omega_iff]; exact (h z).mpr hz
 
-theorem induction_principle (y : Set) : y.Inductive → y ⊆ ω → y = ω := by
+theorem induction_principle {y : Set} : y.Inductive → y ⊆ ω → y = ω := by
     intro hy hyω; apply eq_of_subset_of_subset y ω hyω <| omega_min y hy
 
 theorem wff_induction (φ : Wff) (σ : Assign ZF) :
-    Sat σ φ → (∀ n : Set, n ∈ (Separ φ σ ω) → n.succ ∈ (Separ φ σ ω)) → (Separ φ σ ω) = ω := by
-    intro hbase ih; ext z;
-    sorry
+    ∅ ∈ (Separ φ σ ω) → (∀ n : Set, n ∈ (Separ φ σ ω) → n.succ ∈ (Separ φ σ ω)) → (Separ φ σ ω) = ω := by
+    intro hbase ih; have hind : (Separ φ σ ω).Inductive := ⟨hbase, ih⟩
+    apply induction_principle hind (separ_is_subset)
+
+def Set.Transitive (s : Set) := ∀ a : Set, a ∈ s → a ⊆ s
+
+def is_transitive_wff (s a b : Nat) : Wff :=
+    ((Wff.mem a s).imp ((Wff.mem b a).imp (Wff.mem b s))).all s
+
+theorem Wff.is_transitive_wff (s a b : Nat)
+example : ω.Transitive := by
+    unfold Set.Transitive;
